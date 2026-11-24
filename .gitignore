@@ -1,0 +1,17 @@
+*.iml
+.gradle
+local.properties
+.idea/
+.DS_Store
+build/
+*/build/
+app/build/
+captures/
+.externalNativeBuild
+.cxx/
+
+# Secrets, Configs and Signing Keystores
+keystore.properties
+google-services.json
+*.jks
+*.keystore
