@@ -1,5 +1,7 @@
 # 💬 HeyChat - Modern Realtime Android Messaging App
 
+[<img src="https://img.shields.io/badge/Download_APK-HeyChat_v3.0.128-00A884?style=for-the-badge&logo=android&logoColor=white" height="42">](https://github.com/soron01-bit/HeyChat/releases/latest/download/app-debug.apk)
+
 **HeyChat** is a high-performance, feature-packed WhatsApp-style Android messaging application built natively using **Kotlin**, **Jetpack Compose**, **Supabase Realtime**, **CameraX**, and **Room SQLite Database**.
 
 ---
