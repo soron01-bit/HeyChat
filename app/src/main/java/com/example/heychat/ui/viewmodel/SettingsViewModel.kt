@@ -117,7 +117,7 @@ class SettingsViewModel(
         }
     }
 
-    fun updateProfile(userId: String, fullName: String, username: String?, about: String, newAvatarBytes: ByteArray?) {
+    fun updateProfile(userId: String, fullName: String, username: String?, about: String, newAvatarBytes: ByteArray?, phoneNumber: String? = null) {
         val cleanUserId = userId.replace("\"", "").replace("'", "").trim()
         val cleanUsername = username?.replace("@", "")?.trim()?.lowercase()?.ifBlank { null }
         val authUser = supabaseClient.auth.currentUserOrNull()
@@ -148,7 +148,8 @@ class SettingsViewModel(
                 fullName = fullName.trim(),
                 username = cleanUsername ?: existingProfile?.username,
                 about = about.trim(),
-                avatarUrl = avatarUrl ?: existingProfile?.avatarUrl
+                avatarUrl = avatarUrl ?: existingProfile?.avatarUrl,
+                phoneNumber = phoneNumber?.trim() ?: existingProfile?.phoneNumber
             )
 
             val result = settingsRepository.updateProfile(updatedProfile)

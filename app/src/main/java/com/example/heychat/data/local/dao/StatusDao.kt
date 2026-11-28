@@ -34,7 +34,7 @@ interface StatusDao {
     @Query("DELETE FROM statuses WHERE LOWER(id) = LOWER(:statusId) OR id = :statusId")
     suspend fun deleteStatusById(statusId: String)
 
-    @Query("DELETE FROM statuses WHERE expires_at IS NOT NULL AND expires_at < :nowIso")
+    @Query("DELETE FROM statuses WHERE expires_at IS NOT NULL AND expires_at != '' AND expires_at < :nowIso")
     suspend fun deleteExpiredStatuses(nowIso: String)
 
     @Query("DELETE FROM statuses")

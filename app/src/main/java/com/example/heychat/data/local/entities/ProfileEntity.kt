@@ -17,6 +17,7 @@ data class ProfileEntity(
     @ColumnInfo(name = "is_online") val isOnline: Boolean? = false,
     @ColumnInfo(name = "last_seen") val lastSeen: String? = null,
     @ColumnInfo(name = "fcm_token") val fcmToken: String? = null,
+    @ColumnInfo(name = "phone_number") val phoneNumber: String? = "",
     @ColumnInfo(name = "created_at") val createdAt: String? = null
 ) {
     fun toProfile(): Profile {
@@ -30,6 +31,7 @@ data class ProfileEntity(
             isOnline = isOnline,
             lastSeen = lastSeen,
             fcmToken = fcmToken,
+            phoneNumber = phoneNumber,
             createdAt = createdAt
         )
     }
@@ -47,6 +49,7 @@ data class ProfileEntity(
                 isOnline = profile.isOnline,
                 lastSeen = profile.lastSeen,
                 fcmToken = profile.fcmToken,
+                phoneNumber = profile.phoneNumber,
                 createdAt = profile.createdAt
             )
         }

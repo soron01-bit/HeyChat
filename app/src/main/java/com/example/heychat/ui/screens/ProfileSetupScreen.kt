@@ -4,6 +4,10 @@ import android.content.res.Configuration
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.imePadding
+import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -15,12 +19,15 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AlternateEmail
 import androidx.compose.material.icons.filled.CameraAlt
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Person
+import androidx.compose.material.icons.filled.Phone
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
@@ -56,11 +63,12 @@ import com.example.heychat.ui.viewmodel.AuthViewModel
 @Composable
 fun ProfileSetupScreen(
     viewModel: AuthViewModel? = null,
-    onContinueClick: (name: String, username: String, status: String) -> Unit = { _, _, _ -> },
+    onContinueClick: (name: String, username: String, status: String, phoneNumber: String) -> Unit = { _, _, _, _ -> },
     onBackClick: () -> Unit = {}
 ) {
     var name by remember { mutableStateOf("") }
     var usernameInput by remember { mutableStateOf("") }
+    var phoneNumberInput by remember { mutableStateOf("") }
     var statusText by remember { mutableStateOf("Hey there! I am using Hey Chat 💬") }
 
     val isUsernameChecking = viewModel?.isUsernameChecking?.collectAsState()?.value ?: false
@@ -83,7 +91,10 @@ fun ProfileSetupScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(padding)
-                .padding(horizontal = 24.dp, vertical = 24.dp),
+                .imePadding()
+                .navigationBarsPadding()
+                .padding(horizontal = 20.dp, vertical = 12.dp)
+                .verticalScroll(rememberScrollState()),
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.SpaceBetween
         ) {
@@ -91,7 +102,7 @@ fun ProfileSetupScreen(
                 horizontalAlignment = Alignment.CenterHorizontally,
                 modifier = Modifier.fillMaxWidth()
             ) {
-                Spacer(modifier = Modifier.height(16.dp))
+                Spacer(modifier = Modifier.height(8.dp))
 
                 Text(
                     text = "Set up your profile name & bio",
@@ -99,12 +110,12 @@ fun ProfileSetupScreen(
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
 
-                Spacer(modifier = Modifier.height(28.dp))
+                Spacer(modifier = Modifier.height(20.dp))
 
                 // Avatar Container with Camera Icon Badge
                 Box(
                     modifier = Modifier
-                        .size(120.dp)
+                        .size(96.dp)
                         .clickable { /* Trigger image picker */ }
                 ) {
                     Box(
@@ -232,6 +243,28 @@ fun ProfileSetupScreen(
                     modifier = Modifier.fillMaxWidth()
                 )
 
+                Spacer(modifier = Modifier.height(16.dp))
+
+                // Phone Number Input Field
+                OutlinedTextField(
+                    value = phoneNumberInput,
+                    onValueChange = { phoneNumberInput = it },
+                    label = { Text("Phone Number (e.g. +91 9876543210)") },
+                    leadingIcon = {
+                        Icon(
+                            imageVector = Icons.Default.Phone,
+                            contentDescription = "Phone Number"
+                        )
+                    },
+                    singleLine = true,
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone),
+                    shape = RoundedCornerShape(14.dp),
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedBorderColor = MaterialTheme.colorScheme.primary
+                    ),
+                    modifier = Modifier.fillMaxWidth()
+                )
+
                 if (serverError != null) {
                     Spacer(modifier = Modifier.height(12.dp))
                     Text(
@@ -246,9 +279,9 @@ fun ProfileSetupScreen(
             Button(
                 onClick = {
                     if (viewModel != null) {
-                        viewModel.completeProfileSetup(name, usernameInput, statusText)
+                        viewModel.completeProfileSetup(name, usernameInput, statusText, phoneNumberInput)
                     } else {
-                        onContinueClick(name, usernameInput, statusText)
+                        onContinueClick(name, usernameInput, statusText, phoneNumberInput)
                     }
                 },
                 enabled = name.isNotBlank() && usernameInput.length >= 3 && isUsernameAvailable == true && !isLoading,

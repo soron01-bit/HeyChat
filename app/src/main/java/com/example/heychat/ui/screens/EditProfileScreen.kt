@@ -12,6 +12,8 @@ import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -25,12 +27,15 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AlternateEmail
 import androidx.compose.material.icons.filled.CameraAlt
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Person
+import androidx.compose.material.icons.filled.Phone
 import androidx.compose.material.icons.filled.QrCode
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
@@ -89,6 +94,7 @@ fun EditProfileScreen(
 
     var name by remember(currentProfile) { mutableStateOf(currentProfile?.fullName ?: "") }
     var usernameInput by remember(currentProfile) { mutableStateOf(currentProfile?.username ?: "") }
+    var phoneNumberInput by remember(currentProfile) { mutableStateOf(currentProfile?.phoneNumber ?: "") }
     var about by remember(currentProfile) { mutableStateOf(currentProfile?.about ?: "Hey there! I am using Hey Chat 💬") }
     var selectedImageBytes by remember { mutableStateOf<ByteArray?>(null) }
     var selectedImageBitmap by remember { mutableStateOf<Bitmap?>(null) }
@@ -155,20 +161,16 @@ fun EditProfileScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(padding)
-                .padding(horizontal = 24.dp, vertical = 24.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.SpaceBetween
+                .padding(horizontal = 20.dp, vertical = 12.dp)
+                .verticalScroll(rememberScrollState()),
+            horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            Column(
-                horizontalAlignment = Alignment.CenterHorizontally,
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Spacer(modifier = Modifier.height(16.dp))
+            Spacer(modifier = Modifier.height(8.dp))
 
                 // Avatar Box with Modern PickVisualMedia Gallery Image Picker
                 Box(
                     modifier = Modifier
-                        .size(130.dp)
+                        .size(96.dp)
                         .clickable {
                             imagePickerLauncher.launch(
                                 PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)
@@ -272,7 +274,7 @@ fun EditProfileScreen(
                     )
                 }
 
-                Spacer(modifier = Modifier.height(32.dp))
+                Spacer(modifier = Modifier.height(12.dp))
 
                 // Name Input
                 OutlinedTextField(
@@ -290,7 +292,7 @@ fun EditProfileScreen(
                     modifier = Modifier.fillMaxWidth()
                 )
 
-                Spacer(modifier = Modifier.height(16.dp))
+                Spacer(modifier = Modifier.height(10.dp))
 
                 // Username Handle Input
                 OutlinedTextField(
@@ -308,7 +310,26 @@ fun EditProfileScreen(
                     modifier = Modifier.fillMaxWidth()
                 )
 
-                Spacer(modifier = Modifier.height(16.dp))
+                Spacer(modifier = Modifier.height(10.dp))
+
+                // Phone Number Input
+                OutlinedTextField(
+                    value = phoneNumberInput,
+                    onValueChange = { phoneNumberInput = it },
+                    label = { Text("Phone Number") },
+                    leadingIcon = {
+                        Icon(imageVector = Icons.Default.Phone, contentDescription = "Phone Number")
+                    },
+                    singleLine = true,
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone),
+                    shape = RoundedCornerShape(14.dp),
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedBorderColor = MaterialTheme.colorScheme.primary
+                    ),
+                    modifier = Modifier.fillMaxWidth()
+                )
+
+                Spacer(modifier = Modifier.height(10.dp))
 
                 // About / Bio Input
                 OutlinedTextField(
@@ -325,7 +346,8 @@ fun EditProfileScreen(
                     ),
                     modifier = Modifier.fillMaxWidth()
                 )
-            }
+
+                Spacer(modifier = Modifier.height(20.dp))
 
             Button(
                 onClick = {
@@ -336,7 +358,8 @@ fun EditProfileScreen(
                             fullName = name,
                             username = usernameInput,
                             about = about,
-                            newAvatarBytes = selectedImageBytes
+                            newAvatarBytes = selectedImageBytes,
+                            phoneNumber = phoneNumberInput
                         )
                     }
                 },

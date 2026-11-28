@@ -172,7 +172,9 @@ fun StatusPrivacySettingsScreen(
 
         val activeSelectedIds = remember(currentSettings, isExceptOption) {
             val list = if (isExceptOption) currentSettings.excludedUserIds else currentSettings.selectedUserIds
-            mutableStateListOf<String>().apply { addAll(list) }
+            mutableStateListOf<String>().apply {
+                addAll(list.map { it.replace("\"", "").replace("'", "").trim().lowercase() })
+            }
         }
 
         ModalBottomSheet(
@@ -194,7 +196,7 @@ fun StatusPrivacySettingsScreen(
 
                     if (eligibleContacts.isEmpty()) {
                         Text(
-                            text = "No eligible contacts found. Only contacts you've previously exchanged messages with will appear here.",
+                            text = "No eligible contacts found.",
                             style = MaterialTheme.typography.bodyMedium,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                             modifier = Modifier.padding(vertical = 24.dp)
@@ -206,15 +208,16 @@ fun StatusPrivacySettingsScreen(
                                 .weight(1f)
                         ) {
                             items(eligibleContacts) { contact ->
-                                val isChecked = activeSelectedIds.contains(contact.id)
+                                val cleanContactId = contact.id.replace("\"", "").replace("'", "").trim().lowercase()
+                                val isChecked = activeSelectedIds.contains(cleanContactId)
                                 Row(
                                     modifier = Modifier
                                         .fillMaxWidth()
                                         .clickable {
                                             if (isChecked) {
-                                                activeSelectedIds.remove(contact.id)
+                                                activeSelectedIds.remove(cleanContactId)
                                             } else {
-                                                activeSelectedIds.add(contact.id)
+                                                activeSelectedIds.add(cleanContactId)
                                             }
                                         }
                                         .padding(vertical = 10.dp),

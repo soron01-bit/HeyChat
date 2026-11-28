@@ -22,6 +22,10 @@ class SettingsRepositoryImpl(
     private val context: Context? = null
 ) : SettingsRepository {
 
+    private companion object {
+        const val TAG = "HeyChat_Settings"
+    }
+
     override suspend fun uploadAvatar(userId: String, imageBytes: ByteArray): Result<String> = withContext(Dispatchers.IO) {
         runCatching {
             val cleanUserId = userId.replace("\"", "").replace("'", "").trim()
@@ -67,7 +71,8 @@ class SettingsRepositoryImpl(
                     fullName = profile.fullName,
                     username = profile.username,
                     avatarUrl = avatarUrlToSave,
-                    about = profile.about ?: "Hey there! I am using Hey Chat 💬"
+                    about = profile.about ?: "Hey there! I am using Hey Chat 💬",
+                    phoneNumber = profile.phoneNumber ?: ""
                 )
                 db.profileDao().upsertProfile(profileEntity)
                 db.conversationDao().updateAvatarForUser(cleanUserId, avatarUrlToSave)
@@ -79,6 +84,7 @@ class SettingsRepositoryImpl(
                     put("username", profile.username.replace("@", "").trim().lowercase())
                 }
                 put("about", profile.about ?: "Hey there! I am using Hey Chat 💬")
+                put("phone_number", profile.phoneNumber ?: "")
                 if (!avatarUrlToSave.isNullOrBlank()) {
                     put("avatar_url", avatarUrlToSave)
                 }
@@ -89,6 +95,7 @@ class SettingsRepositoryImpl(
                     eq("id", cleanUserId)
                 }
             }
+            Log.d(TAG, "updateProfile SUCCESS -> Saved phone_number '${profile.phoneNumber}' for user '$cleanUserId'")
             Unit
         }
     }

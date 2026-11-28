@@ -20,6 +20,7 @@ data class Profile(
     @SerialName("disappearing_messages_duration") val disappearingMessagesDuration: String? = "OFF",
     @SerialName("two_step_enabled") val twoStepEnabled: Boolean? = false,
     @SerialName("fcm_token") val fcmToken: String? = null,
+    @SerialName("phone_number") val phoneNumber: String? = "",
     @SerialName("created_at") val createdAt: String? = null
 ) {
     val handle: String

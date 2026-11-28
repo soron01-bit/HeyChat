@@ -340,6 +340,40 @@ class ChatRepositoryImpl(
         }.getOrDefault(emptySet())
     }
 
+    private suspend fun isBlockedBetweenUsers(user1: String, user2: String): Boolean = withContext(Dispatchers.IO) {
+        val clean1 = user1.replace("\"", "").replace("'", "").trim().lowercase()
+        val clean2 = user2.replace("\"", "").replace("'", "").trim().lowercase()
+
+        if (clean1.isBlank() || clean2.isBlank()) return@withContext false
+
+        val localBlocked = runCatching {
+            HeyChatDatabase.getInstance(context).blockedUserDao().getBlockedUserIdsOnce().map { it.replace("\"", "").replace("'", "").trim().lowercase() }.toSet()
+        }.getOrDefault(emptySet())
+
+        if (localBlocked.contains(clean2)) return@withContext true
+
+        val isBlockedRemote = runCatching {
+            val list = supabaseClient.from("blocked_users")
+                .select {
+                    filter {
+                        or {
+                            and {
+                                eq("blocker_id", clean1)
+                                eq("blocked_id", clean2)
+                            }
+                            and {
+                                eq("blocker_id", clean2)
+                                eq("blocked_id", clean1)
+                            }
+                        }
+                    }
+                }.decodeList<Map<String, String>>()
+            list.isNotEmpty()
+        }.getOrDefault(false)
+
+        isBlockedRemote
+    }
+
     override suspend fun runSafetyNetSync(conversationId: String): Result<Unit> = withContext(Dispatchers.IO) {
         val cleanConvId = conversationId.replace("\"", "").replace("'", "").trim().lowercase()
         if (cleanConvId.isBlank()) return@withContext Result.success(Unit)
@@ -473,6 +507,12 @@ class ChatRepositoryImpl(
     ): Result<Unit> = withContext(Dispatchers.IO) {
         val cleanConvId = conversationId.replace("\"", "").replace("'", "").trim().lowercase()
         val cleanReplyId = replyToMessageId?.replace("\"", "")?.replace("'", "")?.trim()?.ifBlank { null }
+
+        val otherUserId = conversationDao.getConversationById(cleanConvId).firstOrNull()?.otherUserId ?: ""
+        if (otherUserId.isNotBlank() && isBlockedBetweenUsers(senderId, otherUserId)) {
+            Log.w(TAG, "sendMessage ABORTED -> Active block relationship between '$senderId' and '$otherUserId'")
+            return@withContext Result.failure(IllegalStateException("Cannot send message. User is blocked."))
+        }
 
         runCatching {
             val sendStartTime = System.currentTimeMillis()

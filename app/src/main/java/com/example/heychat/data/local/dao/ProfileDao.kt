@@ -16,6 +16,9 @@ interface ProfileDao {
     @Query("SELECT * FROM profiles WHERE LOWER(id) = LOWER(:userId) OR id = :userId")
     suspend fun getProfile(userId: String): ProfileEntity?
 
+    @Query("SELECT * FROM profiles ORDER BY full_name ASC")
+    suspend fun getAllProfilesOnce(): List<ProfileEntity>
+
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun upsertProfile(profile: ProfileEntity)
 

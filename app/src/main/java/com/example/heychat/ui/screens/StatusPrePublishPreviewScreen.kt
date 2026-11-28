@@ -1,9 +1,12 @@
 package com.example.heychat.ui.screens
 
+import android.content.Context
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.graphics.Matrix
 import android.net.Uri
+import android.util.Log
+import android.widget.Toast
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -52,6 +55,7 @@ import com.example.heychat.ui.viewmodel.StatusViewModel
 import java.io.ByteArrayOutputStream
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -157,21 +161,17 @@ fun StatusPrePublishPreviewScreen(
 
                 FloatingActionButton(
                     onClick = {
-                        coroutineScope.launch(Dispatchers.IO) {
-                            runCatching {
-                                val inputStream = context.contentResolver.openInputStream(imageUri)
-                                var bytes = inputStream?.readBytes()
-                                inputStream?.close()
-
-                                if (bytes != null && bytes.isNotEmpty()) {
-                                    if (rotationAngle != 0f) {
-                                        bytes = rotateImageBytes(bytes, rotationAngle)
-                                    }
-                                    statusViewModel.uploadStatusPhoto(bytes, captionText)
-                                }
+                        coroutineScope.launch {
+                            val bytes = readImageBytesFromUri(context, imageUri, rotationAngle)
+                            if (bytes != null && bytes.isNotEmpty()) {
+                                Log.d("HeyChat_StatusPreview", "Photo bytes read successfully (${bytes.size} bytes). Uploading status...")
+                                statusViewModel.uploadStatusPhoto(bytes, captionText)
+                                onPublishSuccess()
+                            } else {
+                                Log.e("HeyChat_StatusPreview", "Failed to read image bytes from uri '$imageUri'!")
+                                Toast.makeText(context, "Failed to load selected photo. Please try another photo.", Toast.LENGTH_SHORT).show()
                             }
                         }
-                        onPublishSuccess()
                     },
                     containerColor = PrimaryEmerald,
                     contentColor = Color.White,
@@ -187,6 +187,42 @@ fun StatusPrePublishPreviewScreen(
             }
         }
     }
+}
+
+private suspend fun readImageBytesFromUri(context: Context, uri: Uri, rotationAngle: Float): ByteArray? = withContext(Dispatchers.IO) {
+    runCatching {
+        // Method 1: Direct stream read
+        val inputStream = context.contentResolver.openInputStream(uri)
+        var bytes = inputStream?.readBytes()
+        inputStream?.close()
+
+        if (bytes != null && bytes.isNotEmpty()) {
+            if (rotationAngle != 0f) {
+                bytes = rotateImageBytes(bytes, rotationAngle)
+            }
+            return@withContext bytes
+        }
+
+        // Method 2: BitmapFactory Fallback
+        val is2 = context.contentResolver.openInputStream(uri)
+        val bmp = BitmapFactory.decodeStream(is2)
+        is2?.close()
+
+        if (bmp != null) {
+            val rotatedBmp = if (rotationAngle != 0f) {
+                val matrix = Matrix().apply { postRotate(rotationAngle) }
+                Bitmap.createBitmap(bmp, 0, 0, bmp.width, bmp.height, matrix, true)
+            } else bmp
+
+            val baos = ByteArrayOutputStream()
+            rotatedBmp.compress(Bitmap.CompressFormat.JPEG, 85, baos)
+            return@withContext baos.toByteArray()
+        }
+
+        null
+    }.onFailure { e ->
+        Log.e("HeyChat_StatusPreview", "readImageBytesFromUri FAILED for uri '$uri': ${e.message}", e)
+    }.getOrNull()
 }
 
 private fun rotateImageBytes(imageBytes: ByteArray, angle: Float): ByteArray {

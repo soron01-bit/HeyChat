@@ -22,6 +22,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Email
 import androidx.compose.material.icons.filled.Lock
+import androidx.compose.material.icons.filled.Phone
 import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material.icons.filled.VisibilityOff
 import androidx.compose.material3.Button
@@ -64,6 +65,7 @@ fun SignupScreen(
     onNavigateToLogin: () -> Unit = {}
 ) {
     var email by remember { mutableStateOf("") }
+    var phoneNumber by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
     var confirmPassword by remember { mutableStateOf("") }
     var passwordVisible by remember { mutableStateOf(false) }
@@ -141,6 +143,30 @@ fun SignupScreen(
                         Icon(imageVector = Icons.Default.Email, contentDescription = "Email")
                     },
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email),
+                    singleLine = true,
+                    shape = RoundedCornerShape(14.dp),
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedBorderColor = MaterialTheme.colorScheme.primary
+                    ),
+                    modifier = Modifier.fillMaxWidth()
+                )
+
+                Spacer(modifier = Modifier.height(14.dp))
+
+                // Phone Number Input Field
+                OutlinedTextField(
+                    value = phoneNumber,
+                    onValueChange = {
+                        phoneNumber = it
+                        localError = null
+                        viewModel?.resetState()
+                    },
+                    label = { Text("Phone Number") },
+                    placeholder = { Text("+91 9876543210") },
+                    leadingIcon = {
+                        Icon(imageVector = Icons.Default.Phone, contentDescription = "Phone Number")
+                    },
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone),
                     singleLine = true,
                     shape = RoundedCornerShape(14.dp),
                     colors = OutlinedTextFieldDefaults.colors(
@@ -247,7 +273,7 @@ fun SignupScreen(
                             localError = "Passwords do not match."
                         } else {
                             localError = null
-                            viewModel?.signUp(email, password, confirmPassword)
+                            viewModel?.signUp(email, password, confirmPassword, phoneNumber)
                         }
                     },
                     enabled = !isLoading,

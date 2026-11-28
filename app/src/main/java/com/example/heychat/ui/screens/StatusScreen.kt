@@ -47,7 +47,10 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
+import android.util.Log
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -85,12 +88,25 @@ fun StatusScreen(
     var activeViewerGroup by remember { mutableStateOf<List<StatusItem>?>(null) }
     var selectedPreviewUri by remember { mutableStateOf<Uri?>(null) }
 
-    // Photo Picker Launcher for status photo selection
+    // Photo Picker Launcher for instant 0ms status photo publication
     val photoPickerLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.PickVisualMedia()
     ) { uri: Uri? ->
         if (uri != null) {
-            selectedPreviewUri = uri
+            coroutineScope.launch(Dispatchers.IO) {
+                runCatching {
+                    val inputStream = context.contentResolver.openInputStream(uri)
+                    val bytes = inputStream?.readBytes()
+                    inputStream?.close()
+
+                    if (bytes != null && bytes.isNotEmpty()) {
+                        Log.d("HeyChat_Status", "Photo selected from Photo Picker (${bytes.size} bytes). Uploading status...")
+                        statusViewModel.uploadStatusPhoto(bytes, "")
+                    }
+                }.onFailure { e ->
+                    Log.e("HeyChat_Status", "Failed to read selected photo bytes: ${e.message}", e)
+                }
+            }
         }
     }
 
@@ -236,7 +252,12 @@ fun StatusScreen(
                                         .size(20.dp)
                                         .clip(CircleShape)
                                         .background(PrimaryEmerald)
-                                        .border(2.dp, MaterialTheme.colorScheme.surface, CircleShape),
+                                        .border(2.dp, MaterialTheme.colorScheme.surface, CircleShape)
+                                        .clickable {
+                                            photoPickerLauncher.launch(
+                                                PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)
+                                            )
+                                        },
                                     contentAlignment = Alignment.Center
                                 ) {
                                     Icon(
@@ -330,16 +351,24 @@ fun StatusScreen(
         }
     }
 
-    // Full-Screen Story Viewer Overlay (Outside Scaffold so BottomBar & Camera FAB are hidden!)
+    // Full-Screen Story Viewer Overlay in dedicated Window Dialog
     if (activeViewerGroup != null) {
-        StatusViewerScreen(
-            statuses = activeViewerGroup!!,
-            initialIndex = 0,
-            statusViewModel = statusViewModel,
-            onClose = { activeViewerGroup = null }
-        )
+        Dialog(
+            onDismissRequest = { activeViewerGroup = null },
+            properties = DialogProperties(
+                usePlatformDefaultWidth = false,
+                decorFitsSystemWindows = false
+            )
+        ) {
+            StatusViewerScreen(
+                statuses = activeViewerGroup!!,
+                initialIndex = 0,
+                statusViewModel = statusViewModel,
+                onClose = { activeViewerGroup = null }
+            )
+        }
     } else if (selectedPreviewUri != null) {
-        // Pre-Publish Status Preview Screen Overlay (Outside Scaffold so BottomBar & FAB are hidden!)
+        // Pre-Publish Status Preview Screen Overlay
         StatusPrePublishPreviewScreen(
             imageUri = selectedPreviewUri!!,
             statusViewModel = statusViewModel,

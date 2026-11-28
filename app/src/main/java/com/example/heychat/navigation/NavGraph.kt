@@ -96,6 +96,8 @@ fun HeyChatNavGraph(
     navController: NavHostController,
     authViewModel: AuthViewModel = viewModel(),
     settingsViewModel: SettingsViewModel = viewModel(),
+    chatListViewModel: ChatListViewModel = viewModel(),
+    statusViewModel: StatusViewModel = viewModel(),
     notificationConvId: String? = null,
     newIntentConvId: String? = null,
     onNewIntentHandled: () -> Unit = {}
@@ -245,17 +247,14 @@ fun HeyChatNavGraph(
         composable(Routes.PROFILE_SETUP) {
             ProfileSetupScreen(
                 viewModel = authViewModel,
-                onContinueClick = { name, username, status ->
-                    authViewModel.completeProfileSetup(name, username, status)
+                onContinueClick = { name, username, status, phoneNumber ->
+                    authViewModel.completeProfileSetup(name, username, status, phoneNumber)
                 },
                 onBackClick = { navController.popBackStack() }
             )
         }
 
         composable(Routes.CHAT_LIST) {
-            val chatListViewModel: ChatListViewModel = viewModel()
-            val statusViewModel: StatusViewModel = viewModel()
-
             MainPagerScreen(
                 initialTab = MainTab.CHATS,
                 chatListViewModel = chatListViewModel,
@@ -282,9 +281,6 @@ fun HeyChatNavGraph(
         }
 
         composable(Routes.STATUS) {
-            val chatListViewModel: ChatListViewModel = viewModel()
-            val statusViewModel: StatusViewModel = viewModel()
-
             MainPagerScreen(
                 initialTab = MainTab.STATUS,
                 chatListViewModel = chatListViewModel,
@@ -311,7 +307,6 @@ fun HeyChatNavGraph(
         }
 
         composable(Routes.STATUS_PRIVACY_SETTINGS) {
-            val statusViewModel: StatusViewModel = viewModel()
             StatusPrivacySettingsScreen(
                 statusViewModel = statusViewModel,
                 onBackClick = { navController.popBackStack() }
@@ -319,9 +314,6 @@ fun HeyChatNavGraph(
         }
 
         composable(Routes.CALLS) {
-            val chatListViewModel: ChatListViewModel = viewModel()
-            val statusViewModel: StatusViewModel = viewModel()
-
             MainPagerScreen(
                 initialTab = MainTab.CALLS,
                 chatListViewModel = chatListViewModel,
@@ -415,9 +407,6 @@ fun HeyChatNavGraph(
         }
 
         composable(Routes.SETTINGS) {
-            val chatListViewModel: ChatListViewModel = viewModel()
-            val statusViewModel: StatusViewModel = viewModel()
-
             MainPagerScreen(
                 initialTab = MainTab.SETTINGS,
                 chatListViewModel = chatListViewModel,

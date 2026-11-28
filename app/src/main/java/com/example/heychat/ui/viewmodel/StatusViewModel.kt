@@ -66,20 +66,37 @@ class StatusViewModel(
         }
 
         viewModelScope.launch {
-            statusRepository.subscribeToStatusRealtimeUpdates().collect {}
+            statusRepository.subscribeToStatusRealtimeUpdates().collect {
+                Log.d(TAG, "Realtime status update received -> Refreshing status list")
+                refreshStatuses()
+            }
         }
     }
 
+    private fun getCurrentUserId(): String {
+        return (supabaseClient.auth.currentUserOrNull()?.id
+            ?: supabaseClient.auth.currentSessionOrNull()?.user?.id
+            ?: "").replace("\"", "").replace("'", "").trim().lowercase()
+    }
+
     fun refreshStatuses() {
-        val currentUserId = supabaseClient.auth.currentUserOrNull()?.id ?: return
+        val currentUserId = getCurrentUserId()
+        if (currentUserId.isBlank()) return
         viewModelScope.launch {
             statusRepository.fetchRecentStatuses(currentUserId)
         }
     }
 
     fun uploadStatusPhoto(imageBytes: ByteArray, caption: String = "") {
-        val currentUserId = supabaseClient.auth.currentUserOrNull()?.id ?: return
-        if (imageBytes.isEmpty()) return
+        val currentUserId = getCurrentUserId()
+        if (currentUserId.isBlank()) {
+            Log.e(TAG, "uploadStatusPhoto FAILED -> User ID is blank")
+            return
+        }
+        if (imageBytes.isEmpty()) {
+            Log.e(TAG, "uploadStatusPhoto FAILED -> Image bytes empty")
+            return
+        }
 
         viewModelScope.launch(Dispatchers.IO) {
             _isUploading.value = true
@@ -95,8 +112,8 @@ class StatusViewModel(
     }
 
     fun markStatusAsViewed(statusId: String, reactionEmoji: String? = null) {
-        val currentUserId = supabaseClient.auth.currentUserOrNull()?.id ?: return
-        if (statusId.isBlank()) return
+        val currentUserId = getCurrentUserId()
+        if (currentUserId.isBlank() || statusId.isBlank()) return
 
         viewModelScope.launch(Dispatchers.IO) {
             statusRepository.markStatusAsViewed(statusId, currentUserId, reactionEmoji)

@@ -4,6 +4,9 @@ import android.app.Application
 import android.content.Context
 import android.util.Log
 import android.util.Patterns
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.heychat.data.local.database.HeyChatDatabase
@@ -202,7 +205,9 @@ class AuthViewModel(
         }
     }
 
-    fun signUp(email: String, password: String, confirmPassword: String) {
+    var currentPhoneNumber by mutableStateOf("")
+
+    fun signUp(email: String, password: String, confirmPassword: String, phoneNumber: String = "") {
         val cleanEmail = email.trim()
         if (!isValidEmail(cleanEmail)) {
             _authState.value = AuthState.Error("Please enter a valid email address.")
@@ -218,6 +223,7 @@ class AuthViewModel(
         }
 
         currentEmail = cleanEmail
+        currentPhoneNumber = phoneNumber.trim()
         viewModelScope.launch {
             _authState.value = AuthState.Loading
             val result = authRepository.signUp(cleanEmail, password)
@@ -294,16 +300,21 @@ class AuthViewModel(
     }
 
     fun checkVerificationAndContinue() {
-        val userId = currentUserId.ifBlank { authRepository.getCurrentUserId() ?: "" }
-        if (userId.isBlank()) {
-            _authState.value = AuthState.Idle
-            return
-        }
-
         viewModelScope.launch {
             _authState.value = AuthState.Loading
-            if (authRepository.isEmailVerified()) {
-                checkOrSetupProfile(userId)
+
+            val authUser = supabaseClient.auth.currentUserOrNull()
+            val userId = currentUserId.ifBlank { authUser?.id ?: supabaseClient.auth.currentSessionOrNull()?.user?.id ?: "" }
+            val email = currentEmail.ifBlank { authUser?.email ?: "" }
+
+            val isVerified = authRepository.isEmailVerified() || authUser?.emailConfirmedAt != null
+
+            if (isVerified) {
+                if (userId.isNotBlank()) {
+                    checkOrSetupProfile(userId)
+                } else {
+                    _authState.value = AuthState.ProfileSetupRequired(userId, email)
+                }
             } else {
                 _authState.value = AuthState.Error("Email is not verified yet. Please click the link in your email inbox.")
             }
@@ -399,7 +410,7 @@ class AuthViewModel(
         }
     }
 
-    fun completeProfileSetup(fullName: String, username: String, about: String) {
+    fun completeProfileSetup(fullName: String, username: String, about: String, phoneNumber: String = "") {
         if (fullName.isBlank()) {
             _authState.value = AuthState.Error("Name cannot be empty.")
             return
@@ -415,12 +426,15 @@ class AuthViewModel(
         val userId = currentUserId.ifBlank { authUser?.id ?: authRepository.getCurrentUserId() ?: "" }
         val userEmail = authUser?.email?.ifBlank { currentEmail } ?: currentEmail
 
+        val effectivePhone = phoneNumber.ifBlank { currentPhoneNumber }.trim()
+
         val newProfile = Profile(
             id = userId,
             email = userEmail,
             fullName = fullName.trim(),
             username = cleanUsername,
-            about = about.ifBlank { "Hey there! I am using Hey Chat 💬" }
+            about = about.ifBlank { "Hey there! I am using Hey Chat 💬" },
+            phoneNumber = effectivePhone
         )
 
         viewModelScope.launch {

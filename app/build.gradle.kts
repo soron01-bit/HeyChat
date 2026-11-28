@@ -23,8 +23,8 @@ android {
         applicationId = "com.example.heychat"
         minSdk = 24
         targetSdk = 34
-        versionCode = 32
-        versionName = "3.0.129"
+        versionCode = 33
+        versionName = "3.0.130"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables {

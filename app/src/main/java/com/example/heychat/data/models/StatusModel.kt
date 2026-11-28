@@ -17,6 +17,14 @@ data class StatusPrivacySettings(
     val selectedUserIds: List<String> = emptyList()
 )
 
+@Serializable
+data class StatusPrivacyRow(
+    @SerialName("user_id") val userId: String = "",
+    @SerialName("privacy_option") val privacyOption: String = "MY_CONTACTS",
+    @SerialName("excluded_user_ids") val excludedUserIds: List<String> = emptyList(),
+    @SerialName("selected_user_ids") val selectedUserIds: List<String> = emptyList()
+)
+
 @Immutable
 @Serializable
 data class StatusItem(
@@ -52,12 +60,4 @@ data class StatusView(
     @SerialName("viewer_avatar") val viewerAvatar: String? = null,
     @SerialName("reaction_emoji") val reactionEmoji: String? = null,
     @SerialName("viewed_at") val viewedAt: String? = null
-)
-
-@Serializable
-data class StatusInsert(
-    @SerialName("id") val id: String,
-    @SerialName("user_id") val userId: String,
-    @SerialName("media_url") val mediaUrl: String,
-    @SerialName("caption") val caption: String = ""
 )

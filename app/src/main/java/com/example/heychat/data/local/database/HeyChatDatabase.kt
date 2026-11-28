@@ -35,7 +35,7 @@ import kotlinx.coroutines.withContext
         MessageReactionEntity::class,
         StatusEntity::class
     ],
-    version = 16,
+    version = 17,
     exportSchema = false
 )
 abstract class HeyChatDatabase : RoomDatabase() {

@@ -20,6 +20,8 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.sp
 
 enum class MainTab(
     val title: String,
@@ -76,7 +78,15 @@ fun HeyChatBottomNavBar(
                         )
                     }
                 },
-                label = { Text(text = tab.title) }
+                label = {
+                    Text(
+                        text = tab.title,
+                        style = MaterialTheme.typography.labelLarge.copy(
+                            fontWeight = if (isSelected) FontWeight.Bold else FontWeight.SemiBold,
+                            fontSize = 13.sp
+                        )
+                    )
+                }
             )
         }
     }

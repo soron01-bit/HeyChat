@@ -78,10 +78,27 @@ fun MainPagerScreen(
         }
     }
 
-    Box(modifier = Modifier.fillMaxSize()) {
+    val activeTab = when (pagerState.currentPage) {
+        0 -> MainTab.CHATS
+        1 -> MainTab.STATUS
+        2 -> MainTab.CALLS
+        3 -> MainTab.SETTINGS
+        else -> MainTab.CHATS
+    }
+
+    Scaffold(
+        bottomBar = {
+            HeyChatBottomNavBar(
+                selectedTab = activeTab,
+                onTabSelected = onTabSelectedLambda
+            )
+        }
+    ) { innerPadding ->
         HorizontalPager(
             state = pagerState,
-            modifier = Modifier.fillMaxSize(),
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(bottom = innerPadding.calculateBottomPadding()),
             userScrollEnabled = true
         ) { page ->
             when (page) {
@@ -91,18 +108,18 @@ fun MainPagerScreen(
                     onChatClick = onChatClick,
                     onNewChatFabClick = onNewChatFabClick,
                     onTabSelected = onTabSelectedLambda,
-                    showBottomBar = true
+                    showBottomBar = false
                 )
                 1 -> StatusScreen(
                     statusViewModel = statusViewModel,
                     onPrivacySettingsClick = onPrivacySettingsClick,
                     onSearchClick = onSearchClick,
                     onTabSelected = onTabSelectedLambda,
-                    showBottomBar = true
+                    showBottomBar = false
                 )
                 2 -> CallsScreen(
                     onTabSelected = onTabSelectedLambda,
-                    showBottomBar = true
+                    showBottomBar = false
                 )
                 3 -> ProfileSettingsScreen(
                     settingsViewModel = settingsViewModel,
@@ -115,7 +132,7 @@ fun MainPagerScreen(
                     onLogoutClick = onLogoutClick,
                     onChatClick = onChatClick,
                     onTabSelected = onTabSelectedLambda,
-                    showBottomBar = true
+                    showBottomBar = false
                 )
             }
         }

@@ -1,13 +1,13 @@
 package com.example.heychat.ui.screens
 
 import android.graphics.BitmapFactory
-import android.net.Uri
+import android.util.Log
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
-import androidx.compose.animation.slideInVertically
-import androidx.compose.animation.slideOutVertically
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
@@ -33,6 +33,9 @@ import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material.icons.filled.RemoveRedEye
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
@@ -40,6 +43,7 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Surface
@@ -58,21 +62,24 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import coil.compose.AsyncImage
-import coil.compose.SubcomposeAsyncImage
+import coil.request.ImageRequest
 import com.example.heychat.data.models.StatusItem
 import com.example.heychat.data.remote.supabaseClient
 import com.example.heychat.ui.theme.PrimaryEmerald
 import com.example.heychat.ui.viewmodel.StatusViewModel
 import io.github.jan.supabase.gotrue.auth
+import java.io.File
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
@@ -86,20 +93,53 @@ fun StatusViewerScreen(
     onClose: () -> Unit
 ) {
     if (statuses.isEmpty()) {
-        onClose()
         return
     }
 
-    val safeLastIndex = if (statuses.isEmpty()) 0 else statuses.lastIndex
+    val safeLastIndex = maxOf(0, statuses.lastIndex)
     var currentIndex by remember { mutableIntStateOf(initialIndex.coerceIn(0, safeLastIndex)) }
     var progress by remember { mutableFloatStateOf(0f) }
     var isPaused by remember { mutableStateOf(false) }
     var showViewerSheet by remember { mutableStateOf(false) }
+    var showDeleteDialog by remember { mutableStateOf(false) }
     var replyText by remember { mutableStateOf("") }
 
-    val currentStatus = statuses.getOrNull(currentIndex) ?: return
-    val currentUserId = supabaseClient.auth.currentUserOrNull()?.id ?: ""
-    val isMyStatus = currentStatus.userId == currentUserId
+    val currentStatus = statuses.getOrNull(currentIndex) ?: statuses.first()
+    val currentUserId = (supabaseClient.auth.currentUserOrNull()?.id ?: "").replace("\"", "").replace("'", "").trim().lowercase()
+    val isMyStatus = currentStatus.userId.replace("\"", "").replace("'", "").trim().lowercase() == currentUserId
+
+    if (showDeleteDialog) {
+        AlertDialog(
+            onDismissRequest = {
+                showDeleteDialog = false
+                isPaused = false
+            },
+            title = { Text("Delete status update?") },
+            text = { Text("This status update will be deleted for you and everyone who received it.") },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        showDeleteDialog = false
+                        statusViewModel.deleteStatus(currentStatus.id)
+                        onClose()
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)
+                ) {
+                    Text("Delete")
+                }
+            },
+            dismissButton = {
+                OutlinedButton(
+                    onClick = {
+                        showDeleteDialog = false
+                        isPaused = false
+                    }
+                ) {
+                    Text("Cancel")
+                }
+            }
+        )
+    }
 
     val statusViewers by statusViewModel.statusViewers.collectAsStateWithLifecycle()
     val coroutineScope = rememberCoroutineScope()
@@ -135,86 +175,128 @@ fun StatusViewerScreen(
         }
     }
 
+    val cleanMediaUrl = currentStatus.mediaUrl.trim()
+    val isLocalFile = cleanMediaUrl.startsWith("/") || cleanMediaUrl.startsWith("file://")
+    val localFilePath = cleanMediaUrl.removePrefix("file://")
+    val localBitmap = remember(cleanMediaUrl) {
+        if (isLocalFile && File(localFilePath).exists()) {
+            runCatching { BitmapFactory.decodeFile(localFilePath) }.getOrNull()
+        } else null
+    }
+
     Box(
         modifier = Modifier
             .fillMaxSize()
             .background(Color.Black)
     ) {
-        // Full Screen Status Photo Image with Offline Loading Indicator
-        SubcomposeAsyncImage(
-            model = currentStatus.mediaUrl,
-            contentDescription = "Status Media",
-            contentScale = ContentScale.Fit,
-            loading = {
-                Box(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .background(Color.Black),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                        CircularProgressIndicator(
-                            color = PrimaryEmerald,
-                            strokeWidth = 3.dp,
-                            modifier = Modifier.size(36.dp)
-                        )
-                        Spacer(modifier = Modifier.height(12.dp))
-                        Text(
-                            text = "Loading status...",
-                            style = MaterialTheme.typography.bodyMedium.copy(color = Color.White.copy(alpha = 0.8f))
-                        )
-                    }
-                }
-            },
-            error = {
-                Box(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .background(Color.Black),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                        CircularProgressIndicator(
-                            color = PrimaryEmerald,
-                            strokeWidth = 3.dp,
-                            modifier = Modifier.size(36.dp)
-                        )
-                        Spacer(modifier = Modifier.height(12.dp))
-                        Text(
-                            text = "Connecting...",
-                            style = MaterialTheme.typography.bodyMedium.copy(color = Color.White.copy(alpha = 0.8f))
-                        )
-                    }
-                }
-            },
-            modifier = Modifier
-                .fillMaxSize()
-                .pointerInput(currentIndex) {
-                    detectTapGestures(
-                        onPress = {
-                            isPaused = true
-                            tryAwaitRelease()
-                            isPaused = false
-                        },
-                        onTap = { offset ->
-                            if (offset.x < size.width / 2) {
-                                if (currentIndex > 0) currentIndex--
-                            } else {
-                                if (currentIndex < statuses.lastIndex) currentIndex++ else onClose()
+        // 1. Full Screen Photo Image or Fallback Card
+        if (localBitmap != null) {
+            Image(
+                bitmap = localBitmap.asImageBitmap(),
+                contentDescription = "Status Photo",
+                contentScale = ContentScale.Fit,
+                modifier = Modifier
+                    .fillMaxSize()
+                    .pointerInput(currentIndex) {
+                        detectTapGestures(
+                            onPress = {
+                                isPaused = true
+                                tryAwaitRelease()
+                                isPaused = false
+                            },
+                            onTap = { offset ->
+                                if (offset.x < size.width / 2) {
+                                    if (currentIndex > 0) currentIndex--
+                                } else {
+                                    if (currentIndex < statuses.lastIndex) currentIndex++ else onClose()
+                                }
                             }
-                        }
-                    )
-                }
-        )
+                        )
+                    }
+            )
+        } else if (cleanMediaUrl.isNotBlank() && cleanMediaUrl.startsWith("http")) {
+            AsyncImage(
+                model = ImageRequest.Builder(LocalContext.current)
+                    .data(cleanMediaUrl)
+                    .crossfade(true)
+                    .build(),
+                contentDescription = "Status Photo",
+                contentScale = ContentScale.Fit,
+                modifier = Modifier
+                    .fillMaxSize()
+                    .pointerInput(currentIndex) {
+                        detectTapGestures(
+                            onPress = {
+                                isPaused = true
+                                tryAwaitRelease()
+                                isPaused = false
+                            },
+                            onTap = { offset ->
+                                if (offset.x < size.width / 2) {
+                                    if (currentIndex > 0) currentIndex--
+                                } else {
+                                    if (currentIndex < statuses.lastIndex) currentIndex++ else onClose()
+                                }
+                            }
+                        )
+                    }
+            )
+        } else {
+            // Fallback Full-Screen Story Card if mediaUrl is missing/empty
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(Color.Black)
+                    .padding(32.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Box(
+                        modifier = Modifier
+                            .size(88.dp)
+                            .clip(CircleShape)
+                            .background(PrimaryEmerald),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            text = currentStatus.userName.take(1).uppercase(),
+                            style = MaterialTheme.typography.headlineLarge.copy(
+                                fontWeight = FontWeight.Bold,
+                                color = Color.White
+                            )
+                        )
+                    }
 
-        // Top Controls: Segmented Progress Bars & User Info
+                    Spacer(modifier = Modifier.height(20.dp))
+
+                    Text(
+                        text = currentStatus.userName,
+                        style = MaterialTheme.typography.titleLarge.copy(
+                            fontWeight = FontWeight.Bold,
+                            color = Color.White
+                        )
+                    )
+
+                    if (!currentStatus.caption.isNullOrBlank()) {
+                        Spacer(modifier = Modifier.height(12.dp))
+                        Text(
+                            text = currentStatus.caption,
+                            style = MaterialTheme.typography.bodyLarge.copy(color = Color.White),
+                            textAlign = TextAlign.Center
+                        )
+                    }
+                }
+            }
+        }
+
+        // 2. Top Controls: Segmented Progress Bars & Author Header
         Column(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(top = 40.dp, start = 12.dp, end = 12.dp)
                 .align(Alignment.TopCenter)
         ) {
-            // Segmented Progress Bar Rows
+            // Segmented Progress Bars
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(4.dp)
@@ -239,16 +321,16 @@ fun StatusViewerScreen(
 
             Spacer(modifier = Modifier.height(12.dp))
 
-            // User Info Header
+            // Author Info Header & Close Button
             Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier.fillMaxWidth()
             ) {
                 Box(
                     modifier = Modifier
                         .size(42.dp)
                         .clip(CircleShape)
-                        .background(MaterialTheme.colorScheme.surfaceVariant),
+                        .background(PrimaryEmerald),
                     contentAlignment = Alignment.Center
                 ) {
                     if (!currentStatus.userAvatar.isNullOrBlank()) {
@@ -273,29 +355,30 @@ fun StatusViewerScreen(
 
                 Column(modifier = Modifier.weight(1f)) {
                     Text(
-                        text = if (isMyStatus) "My Status" else currentStatus.userName,
+                        text = currentStatus.userName,
                         style = MaterialTheme.typography.titleMedium.copy(
                             fontWeight = FontWeight.Bold,
                             color = Color.White
                         )
                     )
                     Text(
-                        text = currentStatus.createdAt?.substringAfter("T")?.take(5) ?: "Just now",
-                        style = MaterialTheme.typography.bodySmall.copy(color = Color.White.copy(alpha = 0.75f))
+                        text = currentStatus.createdAt?.substringAfter("T")?.take(5) ?: "Recently",
+                        style = MaterialTheme.typography.labelMedium,
+                        color = Color.White.copy(alpha = 0.75f)
                     )
                 }
 
                 if (isMyStatus) {
                     IconButton(
                         onClick = {
-                            statusViewModel.deleteStatus(currentStatus.id)
-                            onClose()
+                            isPaused = true
+                            showDeleteDialog = true
                         }
                     ) {
                         Icon(
                             imageVector = Icons.Default.Delete,
                             contentDescription = "Delete Status",
-                            tint = Color.White
+                            tint = MaterialTheme.colorScheme.error
                         )
                     }
                 }
@@ -303,37 +386,37 @@ fun StatusViewerScreen(
                 IconButton(onClick = onClose) {
                     Icon(
                         imageVector = Icons.Default.Close,
-                        contentDescription = "Close",
+                        contentDescription = "Close Story",
                         tint = Color.White
                     )
                 }
             }
         }
 
-        // Optional Caption Overlay
-        if (!currentStatus.caption.isNullOrBlank()) {
+        // 3. Bottom Caption Text overlay
+        if (!currentStatus.caption.isNullOrBlank() && localBitmap != null) {
             Surface(
                 color = Color.Black.copy(alpha = 0.65f),
                 modifier = Modifier
                     .fillMaxWidth()
                     .align(Alignment.BottomCenter)
-                    .padding(bottom = if (isMyStatus) 80.dp else 24.dp)
+                    .padding(bottom = if (isMyStatus) 60.dp else 70.dp)
             ) {
                 Text(
                     text = currentStatus.caption,
                     style = MaterialTheme.typography.bodyLarge.copy(color = Color.White),
                     textAlign = TextAlign.Center,
-                    modifier = Modifier.padding(horizontal = 24.dp, vertical = 12.dp)
+                    modifier = Modifier.padding(horizontal = 20.dp, vertical = 10.dp)
                 )
             }
         }
 
-        // Swipe-up / Eye Icon View Counter for Owner
+        // 4. Bottom Controls: Views Sheet Trigger for Owner OR Reply Bar for Friend
         if (isMyStatus) {
             Surface(
                 color = Color.Black.copy(alpha = 0.5f),
-                shape = RoundedCornerShape(topStart = 18.dp, topEnd = 18.dp),
                 modifier = Modifier
+                    .fillMaxWidth()
                     .align(Alignment.BottomCenter)
                     .clickable {
                         isPaused = true
@@ -341,125 +424,82 @@ fun StatusViewerScreen(
                     }
             ) {
                 Row(
-                    modifier = Modifier.padding(horizontal = 20.dp, vertical = 10.dp),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = 14.dp),
+                    horizontalArrangement = Arrangement.Center,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
+                    Icon(
+                        imageVector = Icons.Default.KeyboardArrowUp,
+                        contentDescription = "Viewers",
+                        tint = Color.White
+                    )
+                    Spacer(modifier = Modifier.width(6.dp))
                     Icon(
                         imageVector = Icons.Default.RemoveRedEye,
                         contentDescription = "Views",
                         tint = Color.White,
-                        modifier = Modifier.size(20.dp)
+                        modifier = Modifier.size(18.dp)
                     )
-                    Spacer(modifier = Modifier.width(8.dp))
+                    Spacer(modifier = Modifier.width(6.dp))
                     Text(
                         text = "${statusViewers.size} views",
-                        style = MaterialTheme.typography.labelLarge.copy(
+                        style = MaterialTheme.typography.bodyMedium.copy(
                             fontWeight = FontWeight.Bold,
                             color = Color.White
                         )
                     )
-                    Spacer(modifier = Modifier.width(6.dp))
-                    Icon(
-                        imageVector = Icons.Default.KeyboardArrowUp,
-                        contentDescription = "Expand",
-                        tint = Color.White,
-                        modifier = Modifier.size(18.dp)
-                    )
                 }
             }
-        }
-
-        // Viewer Direct Status Reply & Quick Reaction Bar with IME Keyboard Padding!
-        if (!isMyStatus) {
-            Column(
+        } else {
+            // Friend's Status: Reply Bar
+            Row(
                 modifier = Modifier
                     .fillMaxWidth()
                     .align(Alignment.BottomCenter)
-                    .imePadding()
                     .navigationBarsPadding()
-                    .background(Color.Black.copy(alpha = 0.85f))
-                    .padding(horizontal = 14.dp, vertical = 10.dp)
+                    .imePadding()
+                    .padding(horizontal = 12.dp, vertical = 10.dp),
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                // Quick Emoji Reactions Row
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(bottom = 8.dp),
-                    horizontalArrangement = Arrangement.SpaceEvenly,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    val quickEmojis = listOf("👍", "❤️", "🔥", "😂", "😮", "🙏")
-                    quickEmojis.forEach { emoji ->
-                        Surface(
-                            shape = CircleShape,
-                            color = Color.White.copy(alpha = 0.2f),
-                            modifier = Modifier
-                                .size(40.dp)
-                                .clickable {
-                                    statusViewModel.markStatusAsViewed(currentStatus.id, emoji)
-                                    statusViewModel.sendStatusReply(currentStatus, emoji)
-                                    onClose()
-                                }
-                        ) {
-                            Box(contentAlignment = Alignment.Center) {
-                                Text(text = emoji, fontSize = 20.sp)
-                            }
+                OutlinedTextField(
+                    value = replyText,
+                    onValueChange = { replyText = it },
+                    placeholder = { Text("Reply to status...", color = Color.White.copy(alpha = 0.6f)) },
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedTextColor = Color.White,
+                        unfocusedTextColor = Color.White,
+                        focusedContainerColor = Color.White.copy(alpha = 0.2f),
+                        unfocusedContainerColor = Color.White.copy(alpha = 0.2f),
+                        focusedBorderColor = PrimaryEmerald,
+                        unfocusedBorderColor = Color.Transparent
+                    ),
+                    shape = RoundedCornerShape(26.dp),
+                    modifier = Modifier.weight(1f)
+                )
+
+                Spacer(modifier = Modifier.width(8.dp))
+
+                IconButton(
+                    onClick = {
+                        if (replyText.isNotBlank()) {
+                            statusViewModel.sendStatusReply(currentStatus, replyText)
+                            replyText = ""
                         }
                     }
-                }
-
-                // Direct Status Reply Input Bar
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    verticalAlignment = Alignment.CenterVertically
                 ) {
-                    OutlinedTextField(
-                        value = replyText,
-                        onValueChange = {
-                            replyText = it
-                            isPaused = it.isNotEmpty()
-                        },
-                        placeholder = {
-                            Text(
-                                text = "Reply to ${currentStatus.userName}...",
-                                color = Color.White.copy(alpha = 0.6f)
-                            )
-                        },
-                        colors = OutlinedTextFieldDefaults.colors(
-                            focusedTextColor = Color.White,
-                            unfocusedTextColor = Color.White,
-                            focusedContainerColor = Color.White.copy(alpha = 0.15f),
-                            unfocusedContainerColor = Color.White.copy(alpha = 0.15f),
-                            focusedBorderColor = PrimaryEmerald,
-                            unfocusedBorderColor = Color.Transparent
-                        ),
-                        shape = RoundedCornerShape(24.dp),
-                        modifier = Modifier.weight(1f)
+                    Icon(
+                        imageVector = Icons.AutoMirrored.Filled.Send,
+                        contentDescription = "Send Reply",
+                        tint = PrimaryEmerald
                     )
-
-                    Spacer(modifier = Modifier.width(8.dp))
-
-                    IconButton(
-                        onClick = {
-                            if (replyText.isNotBlank()) {
-                                statusViewModel.sendStatusReply(currentStatus, replyText)
-                                onClose()
-                            }
-                        }
-                    ) {
-                        Icon(
-                            imageVector = Icons.AutoMirrored.Filled.Send,
-                            contentDescription = "Send Reply",
-                            tint = PrimaryEmerald,
-                            modifier = Modifier.size(26.dp)
-                        )
-                    }
                 }
             }
         }
     }
 
-    // Modal Bottom Sheet showing list of users who viewed your status
+    // 5. Views Bottom Sheet Modal for My Status
     if (showViewerSheet && isMyStatus) {
         val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
         ModalBottomSheet(

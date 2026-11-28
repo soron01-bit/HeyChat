@@ -171,6 +171,7 @@ class AuthRepositoryImpl(
                     put("username", profile.username.replace("@", "").trim().lowercase())
                 }
                 put("about", profile.about ?: "Hey there! I am using Hey Chat 💬")
+                put("phone_number", profile.phoneNumber ?: "")
             }
 
             supabaseClient.from("profiles").upsert(updatePayload)

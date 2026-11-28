@@ -22,10 +22,14 @@ data class StatusEntity(
     @ColumnInfo(name = "view_count") val viewCount: Int = 0
 ) {
     fun toStatusItem(): StatusItem {
-        val effectiveMediaUrl = if (!localMediaPath.isNullOrBlank() && File(localMediaPath).exists()) {
-            localMediaPath
-        } else {
-            mediaUrl
+        val effectiveMediaUrl = when {
+            !localMediaPath.isNullOrBlank() && File(localMediaPath).exists() -> {
+                if (localMediaPath.startsWith("file://") || localMediaPath.startsWith("http")) localMediaPath else "file://$localMediaPath"
+            }
+            !mediaUrl.isNullOrBlank() -> {
+                if (mediaUrl.startsWith("file://") || mediaUrl.startsWith("http")) mediaUrl else "file://$mediaUrl"
+            }
+            else -> ""
         }
         return StatusItem(
             id = id,
@@ -43,7 +47,7 @@ data class StatusEntity(
 
     companion object {
         fun fromStatusItem(item: StatusItem): StatusEntity {
-            val isLocal = item.mediaUrl.startsWith("/")
+            val isLocal = item.mediaUrl.startsWith("/") || item.mediaUrl.startsWith("file://")
             val cleanId = item.id.replace("\"", "").replace("'", "").trim().lowercase()
             val cleanUserId = item.userId.replace("\"", "").replace("'", "").trim().lowercase()
             return StatusEntity(
@@ -52,7 +56,7 @@ data class StatusEntity(
                 userName = item.userName,
                 userAvatar = item.userAvatar,
                 mediaUrl = if (isLocal) "" else item.mediaUrl,
-                localMediaPath = if (isLocal) item.mediaUrl else null,
+                localMediaPath = if (isLocal) item.mediaUrl.removePrefix("file://") else null,
                 caption = item.caption,
                 createdAt = item.createdAt,
                 expiresAt = item.expiresAt,

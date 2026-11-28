@@ -257,6 +257,17 @@ fun ProfileSettingsScreen(
                             Text(
                                 text = email,
                                 style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+
+                        val phone = currentProfile?.phoneNumber
+                        if (!phone.isNullOrBlank()) {
+                            Spacer(modifier = Modifier.height(2.dp))
+
+                            Text(
+                                text = "📱 $phone",
+                                style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.primary
                             )
                         }
